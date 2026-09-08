@@ -1,4 +1,4 @@
 google-genai
-deepgram-sdk
+deepgram-sdk==3.2.0
 moviepy==1.0.3
 requests
