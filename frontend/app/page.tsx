@@ -1,3 +1,5 @@
+import VideoUploader from '../components/VideoUploader';
+
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 md:p-24">
@@ -11,10 +13,7 @@ export default function Home() {
           The $0 AI Director. Upload a long video, and let the system automatically extract and edit highly-viral short clips.
         </p>
         
-        {/* We will build and place our VideoUploader component here in the next step */}
-        <div className="w-full max-w-2xl mt-8 p-12 border-2 border-dashed border-slate-700 rounded-2xl bg-slate-800/30 flex items-center justify-center min-h-[300px]">
-          <p className="text-slate-500 font-medium">Video uploader coming in the next step...</p>
-        </div>
+        <VideoUploader />
 
       </div>
     </main>
