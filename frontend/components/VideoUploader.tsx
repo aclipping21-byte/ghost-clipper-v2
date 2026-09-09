@@ -18,30 +18,40 @@ export default function VideoUploader() {
   const startProcess = async () => {
     if (!file) return;
 
+    // Safety check: 1GB limit for free temporary storage
+    const maxSizeBytes = 1024 * 1024 * 1024; 
+    if (file.size > maxSizeBytes) {
+       setStatus("error");
+       setMessage("File is too large! Please select a video under 1GB.");
+       return;
+    }
+
     try {
       setStatus("uploading");
-      setMessage("Uploading video to secure temporary storage (tmpfiles.org)...");
+      setMessage("Uploading video to secure temporary storage (Litterbox)... This might take a minute.");
 
-      // 1. Upload the file to tmpfiles.org
+      // 1. Upload the file to Litterbox
       const formData = new FormData();
-      formData.append("file", file);
+      formData.append("reqtype", "fileupload");
+      formData.append("time", "1h"); // File expires in 1 hour
+      formData.append("fileToUpload", file);
 
-      const uploadRes = await fetch(`https://tmpfiles.org/api/v1/upload`, {
+      const uploadRes = await fetch("https://litterbox.catbox.moe/resources/internals/api.php", {
         method: "POST",
         body: formData,
       });
       
-      const uploadData = await uploadRes.json();
-
-      if (uploadData.status !== "success") {
+      if (!uploadRes.ok) {
         throw new Error("Failed to upload video.");
       }
 
-      // 2. Convert the link into a DIRECT download link
-      // It returns: https://tmpfiles.org/12345/video.mp4
-      // We need:    https://tmpfiles.org/dl/12345/video.mp4
-      const pageUrl = uploadData.data.url;
-      const downloadUrl = pageUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
+      // 2. Litterbox returns the raw URL directly as text, not JSON!
+      // Example: https://litter.catbox.moe/xyz123.mp4
+      const downloadUrl = await uploadRes.text(); 
+      
+      if (!downloadUrl.startsWith("http")) {
+          throw new Error("Storage provider returned an invalid link.");
+      }
 
       // 3. Trigger GitHub Actions via our Next.js API
       setStatus("processing");
@@ -59,11 +69,11 @@ export default function VideoUploader() {
       }
 
       setStatus("success");
-      setMessage("Success! The AI Director is now editing your clips. Check your GitHub Actions dashboard in a few minutes.");
+      setMessage("Success! The AI Director is now editing your clips. Check your GitHub Actions dashboard.");
 
     } catch (err: any) {
       setStatus("error");
-      setMessage(err.message || "Something went wrong.");
+      setMessage(err.message || "Something went wrong. Please check your connection.");
     }
   };
 
