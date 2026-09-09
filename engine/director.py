@@ -60,7 +60,7 @@ def analyze_transcript_and_plan_edits(timestamped_transcript):
 
     # We use Gemini 2.5 Flash for high speed and structured JSON capabilities
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.6-flash",
         contents=user_prompt,
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
