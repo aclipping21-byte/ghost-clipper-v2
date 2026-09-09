@@ -29,7 +29,7 @@ def get_transcript(audio_path):
     )
 
     # 5. Send to Deepgram
-    response = deepgram.listen.rest.v("1").transcribe_file(payload, options)
+    response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
     
     # 6. Format the output specifically for Gemini
     data = response.to_dict()
