@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export default function VideoUploader() {
   const [file, setFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<string>("idle"); // idle, uploading, processing, success, error
+  const [status, setStatus] = useState<string>("idle");
   const [message, setMessage] = useState<string>("");
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -18,49 +18,42 @@ export default function VideoUploader() {
   const startProcess = async () => {
     if (!file) return;
 
-    // Safety check: 1GB limit for free temporary storage
-    const maxSizeBytes = 1024 * 1024 * 1024; 
-    if (file.size > maxSizeBytes) {
-       setStatus("error");
-       setMessage("File is too large! Please select a video under 1GB.");
-       return;
-    }
-
     try {
       setStatus("uploading");
-      setMessage("Uploading video to secure temporary storage (Litterbox)... This might take a minute.");
+      setMessage("Uploading large video... This may take a few minutes depending on your connection.");
 
-      // 1. Upload the file to Litterbox
+      // 1. Upload the file to storage.to (Supports up to 25GB, no timeout on mobile)
       const formData = new FormData();
-      formData.append("reqtype", "fileupload");
-      formData.append("time", "1h"); // File expires in 1 hour
-      formData.append("fileToUpload", file);
+      formData.append("file", file);
 
-      const uploadRes = await fetch("https://litterbox.catbox.moe/resources/internals/api.php", {
+      const uploadRes = await fetch("https://storage.to/api/upload/init", {
         method: "POST",
         body: formData,
       });
       
-      if (!uploadRes.ok) {
-        throw new Error("Failed to upload video.");
+      const uploadData = await uploadRes.json();
+
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error("Failed to upload video to storage provider.");
       }
 
-      // 2. Litterbox returns the raw URL directly as text, not JSON!
-      // Example: https://litter.catbox.moe/xyz123.mp4
-      const downloadUrl = await uploadRes.text(); 
-      
-      if (!downloadUrl.startsWith("http")) {
-          throw new Error("Storage provider returned an invalid link.");
+      // Storage.to provides a view page link. We append ?download=1 or parse it 
+      // to ensure GitHub Actions gets the raw video bytes.
+      // Usually it returns something like: https://storage.to/v/abc12345
+      // To get the raw file, their API allows adding /raw to the path
+      let rawDownloadUrl = uploadData.url;
+      if (rawDownloadUrl.includes("/v/")) {
+          rawDownloadUrl = rawDownloadUrl.replace("/v/", "/raw/");
       }
 
-      // 3. Trigger GitHub Actions via our Next.js API
+      // 2. Trigger GitHub Actions via our Next.js API
       setStatus("processing");
       setMessage("Upload complete! Sending to AI Director in GitHub Actions...");
 
       const triggerRes = await fetch("/api/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: downloadUrl }),
+        body: JSON.stringify({ videoUrl: rawDownloadUrl }),
       });
 
       if (!triggerRes.ok) {
