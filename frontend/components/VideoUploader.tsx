@@ -20,34 +20,28 @@ export default function VideoUploader() {
 
     try {
       setStatus("uploading");
-      setMessage("Uploading video to secure temporary storage...");
+      setMessage("Uploading video to secure temporary storage (tmpfiles.org)...");
 
-      // 1. Get the best server from GoFile (Free tier API)
-      const serverRes = await fetch("https://api.gofile.io/servers", { method: "GET" });
-      const serverData = await serverRes.json();
-      
-      if (serverData.status !== "ok") {
-        throw new Error("Could not connect to storage provider.");
-      }
-      
-      const serverName = serverData.data.servers[0].name;
-
-      // 2. Upload the file to that specific GoFile server
+      // 1. Upload the file to tmpfiles.org
       const formData = new FormData();
       formData.append("file", file);
 
-      const uploadRes = await fetch(`https://${serverName}.gofile.io/contents/uploadfile`, {
+      const uploadRes = await fetch(`https://tmpfiles.org/api/v1/upload`, {
         method: "POST",
         body: formData,
       });
       
       const uploadData = await uploadRes.json();
 
-      if (uploadData.status !== "ok") {
+      if (uploadData.status !== "success") {
         throw new Error("Failed to upload video.");
       }
 
-      const downloadUrl = uploadData.data.downloadPage;
+      // 2. Convert the link into a DIRECT download link
+      // It returns: https://tmpfiles.org/12345/video.mp4
+      // We need:    https://tmpfiles.org/dl/12345/video.mp4
+      const pageUrl = uploadData.data.url;
+      const downloadUrl = pageUrl.replace("tmpfiles.org/", "tmpfiles.org/dl/");
 
       // 3. Trigger GitHub Actions via our Next.js API
       setStatus("processing");
