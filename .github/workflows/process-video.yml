@@ -33,7 +33,7 @@ jobs:
 
       - name: Run Ghost Clipper Engine
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
           VIDEO_URL: ${{ inputs.video_url }}
         run: |
