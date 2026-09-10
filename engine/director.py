@@ -2,7 +2,7 @@ import os
 import json
 from openai import OpenAI
 
-def get_viral_clips(transcript):
+def analyze_transcript_and_plan_edits(transcript):
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY environment variable is missing.")
