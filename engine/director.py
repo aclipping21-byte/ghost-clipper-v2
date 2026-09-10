@@ -13,12 +13,12 @@ def analyze_transcript_and_plan_edits(transcript):
         api_key=api_key,
     )
 
-    # Our safety fallback list. If one fails, it instantly tries the next.
+        # The Bulletproof Loop (Updated September 2026)
     fallback_models = [
-        "qwen/qwen-2.5-72b-instruct:free",
-        "meta-llama/llama-3.1-8b-instruct:free",
-        "mistralai/mistral-nemo:free",
-        "google/gemini-2.0-flash-lite-preview-02-05:free"
+        "openrouter/free",
+        "thinkingmachines/inkling:free",
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "google/gemma-4-31b-it:free"
     ]
 
     system_prompt = """You are an expert AI video director. Your job is to read a video transcript and find the most viral, engaging moments to turn into short-form clips (TikTok/Reels).
