@@ -1,81 +1,71 @@
 import os
 import json
-from google import genai
-from google.genai import types
+from openai import OpenAI
 
-SYSTEM_PROMPT = """
-You are an elite short-form video editor and director for TikTok, Instagram Reels, and YouTube Shorts.
-Your task is to analyze a transcript containing timestamps and identify up to 5 genuinely strong, high-retention clips.
-
-CRITICAL RULES:
-1. Prioritize strong hooks, viral potential, storytelling, and self-contained moments.
-2. DO NOT select random or mediocre moments just to fill 5 clips. If only 2 or 3 moments are great, return only 2 or 3.
-3. Every clip MUST work independently without requiring extra context.
-4. Timestamps must strictly match the start and end of the spoken words in the transcript.
-5. For each clip, decide on creative edits (e.g., hook text in the first 3 seconds, color flashes for emphasis, or text cards).
-
-OUTPUT FORMAT:
-You MUST respond with a valid JSON object matching this structure EXACTLY:
-{
-  "clips": [
-    {
-      "clip_id": 1,
-      "title": "Short descriptive title",
-      "score": 90,
-      "start_time": 12.5,
-      "end_time": 45.2,
-      "rationale": "Why this clip works...",
-      "formatting": {
-        "aspect_ratio": "9:16"
-      },
-      "edits": [
-        {
-          "type": "hook_text",
-          "text": "ATTENTION-GRABBING HOOK",
-          "start": 0,
-          "end": 3
-        },
-        {
-          "type": "flash",
-          "color": "white",
-          "time": 3.5
-        }
-      ]
-    }
-  ]
-}
-"""
-
-def analyze_transcript_and_plan_edits(timestamped_transcript):
-    print("Sending transcript to Gemini Director...")
-    
-    api_key = os.environ.get("GEMINI_API_KEY")
+def get_viral_clips(transcript):
+    api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
-        raise ValueError("GEMINI_API_KEY environment variable is missing.")
+        raise ValueError("OPENROUTER_API_KEY environment variable is missing.")
 
-    # Initialize Gemini client
-    client = genai.Client(api_key=api_key)
-
-    user_prompt = f"Analyze this transcript and output your editing plan in the requested JSON format:\n\n{timestamped_transcript}"
-
-    # We use Gemini 2.5 Flash for high speed and structured JSON capabilities
-    response = client.models.generate_content(
-        model="gemini-3.6-flash",
-        contents=user_prompt,
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            response_mime_type="application/json",
-            temperature=0.3
-        )
+    # Initialize the OpenAI client pointing to OpenRouter's servers
+    client = OpenAI(
+        base_url="https://openrouter.ai/api/v1",
+        api_key=api_key,
     )
 
-    try:
-        director_plan = json.loads(response.text)
-        print(f"Director successfully identified {len(director_plan.get('clips', []))} clip(s).")
-        return director_plan
-    except json.JSONDecodeError as e:
-        print("Error: Gemini returned invalid JSON:", response.text)
-        raise e
+    # Our safety fallback list. If one fails, it instantly tries the next.
+    fallback_models = [
+        "qwen/qwen-2.5-72b-instruct:free",
+        "meta-llama/llama-3.1-8b-instruct:free",
+        "mistralai/mistral-nemo:free",
+        "google/gemini-2.0-flash-lite-preview-02-05:free"
+    ]
 
-if __name__ == "__main__":
-    pass
+    system_prompt = """You are an expert AI video director. Your job is to read a video transcript and find the most viral, engaging moments to turn into short-form clips (TikTok/Reels).
+    You must reply strictly in valid JSON format matching this exact structure:
+    {
+        "clips": [
+            {
+                "start_time": 12.5,
+                "end_time": 45.0,
+                "title": "The most insane hook goes here"
+            }
+        ]
+    }
+    Only output JSON. Do not include markdown blocks. Do not include any other text."""
+
+    user_prompt = f"Here is the transcript:\n\n{transcript}\n\nFind 1 to 3 viral clips and output the exact JSON."
+
+    # The Bulletproof Loop
+    for model in fallback_models:
+        print(f"Director: Attempting to analyze transcript using {model}...")
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+            )
+            
+            raw_content = response.choices[0].message.content.strip()
+            
+            # Clean up the output just in case the AI added formatting blocks
+            if raw_content.startswith("```json"):
+                raw_content = raw_content[7:]
+            if raw_content.endswith("```"):
+                raw_content = raw_content[:-3]
+                
+            clips_data = json.loads(raw_content.strip())
+            
+            print(f"Success! Model {model} delivered the clips.")
+            return clips_data["clips"]
+            
+        except Exception as e:
+            print(f"Warning: Model {model} failed or returned invalid JSON.")
+            print(f"Error details: {e}")
+            print("Switching to next fallback model in 3, 2, 1...\n")
+            continue
+            
+    # If the loop finishes without returning anything, all models failed
+    raise RuntimeError("Critical Failure: All OpenRouter fallback models failed to generate clips.")
