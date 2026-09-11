@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     if (!token || !owner || !repo) {
       return NextResponse.json(
-        { error: "Missing GitHub credentials in Netlify settings." },
+        { error: "Missing GitHub credentials (GH_PAT, GH_OWNER, or GH_REPO) in Netlify environment variables." },
         { status: 500 }
       );
     }
@@ -19,10 +19,13 @@ export async function POST(req: Request) {
     const eventType = action === "render" ? "phase2_render" : "phase1_transcribe";
     const clientPayload = action === "render" ? { videoUrl, clipsJson } : { videoUrl };
 
-    const res = await fetch(`[https://api.github.com/repos/$](https://api.github.com/repos/$){owner}/${repo}/dispatches`, {
+    // String concatenation prevents mobile keyboard syntax bugs
+    const dispatchUrl = "https://api.github.com/repos/" + owner + "/" + repo + "/dispatches";
+
+    const res = await fetch(dispatchUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: "Bearer " + token,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
@@ -35,7 +38,7 @@ export async function POST(req: Request) {
 
     if (!res.ok) {
       const errText = await res.text();
-      return NextResponse.json({ error: `GitHub API error: ${errText}` }, { status: res.status });
+      return NextResponse.json({ error: "GitHub API error: " + errText }, { status: res.status });
     }
 
     return NextResponse.json({ success: true });
