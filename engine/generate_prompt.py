@@ -38,7 +38,16 @@ def main():
     transcript = get_transcript(audio_path)
     print("Transcription complete!\n")
 
-    prompt_text = f"""You are an expert AI video director. Read this transcript and identify 1 to 3 viral short clips (15 to 60 seconds each).
+        prompt_text = f"""You are an expert AI video director for TikTok/Reels. Read the transcript below and identify 1 to 2 highly viral clips (15-60s). 
+Your editing philosophy: Content and retention come first. Do not overuse effects. Use surgical edits to enhance retention.
+
+You have access to these specific effects:
+- "hook_text": Bold white text on a black screen for the first 3 seconds.
+- "zooms": "zoom_in" (smooth push in) or "zoom_out".
+- "flashes": "green_flash" or "red_flash" for emphasis.
+- "cards": Pop-up text cards entering from outside frame (e.g., "WTF", "AGREED", "BULLSH*T").
+- "caption_style": Font style ("standard", "impact", "minimal") and animation ("pop", "word_by_word", "color_highlight").
+- "screen_mode": "white_screen" or "black_screen" with large text for dramatic pauses.
 
 STRICT REQUIREMENT: Reply ONLY in valid JSON matching this exact structure:
 {{
@@ -46,12 +55,25 @@ STRICT REQUIREMENT: Reply ONLY in valid JSON matching this exact structure:
     {{
       "start_time": 12.5,
       "end_time": 45.0,
-      "title": "Viral Moment Title"
+      "title": "Insane hook title",
+      "audio_enhance": true,
+      "caption_style": {{
+        "font": "impact",
+        "animation": "color_highlight",
+        "highlight_color": "yellow"
+      }},
+      "hook_text": "YOU'VE BEEN DOING THIS WRONG",
+      "visual_effects": [
+        {{"type": "zoom_in", "time": 15.0}},
+        {{"type": "green_flash", "time": 22.5}},
+        {{"type": "animated_card", "text": "BULLSH*T", "time": 28.0}},
+        {{"type": "black_screen", "text": "Wait for it...", "start": 35.0, "end": 36.5}}
+      ]
     }}
   ]
 }}
 
-Transcript:
+Transcript with timestamps:
 {transcript}"""
 
     print("=" * 40)
