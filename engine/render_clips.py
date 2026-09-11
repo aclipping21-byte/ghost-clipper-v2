@@ -12,6 +12,9 @@ def main():
         print("Error: Missing VIDEO_URL or CLIPS_JSON environment variable.")
         sys.exit(1)
 
+    # Clean leading/trailing whitespace FIRST
+    raw_json = raw_json.strip()
+
     # Clean markdown wrapper if present
     if raw_json.startswith("```json"):
         raw_json = raw_json[7:]
@@ -19,6 +22,7 @@ def main():
         raw_json = raw_json[3:]
     if raw_json.endswith("```"):
         raw_json = raw_json[:-3]
+        
     raw_json = raw_json.strip()
 
     try:
