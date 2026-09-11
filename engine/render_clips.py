@@ -2,7 +2,7 @@ import os
 import sys
 import json
 from download import download_video
-from renderer import ClipRenderer
+import renderer
 
 def main():
     video_url = os.environ.get("VIDEO_URL")
@@ -42,14 +42,21 @@ def main():
     print(f"Downloading video from: {video_url}")
     download_video(video_url, source_video_path)
 
-    renderer = ClipRenderer()
     output_dir = "workspace/output"
     os.makedirs(output_dir, exist_ok=True)
 
     for i, clip in enumerate(clips):
         output_filename = os.path.join(output_dir, f"clip_{i+1}.mp4")
         print(f"Rendering Clip #{i+1} ({clip['start_time']}s to {clip['end_time']}s)...")
-        renderer.render_clip(source_video_path, clip, output_filename)
+        
+        # Flexibly handle both standalone function or class-based renderer
+        if hasattr(renderer, "render_clip"):
+            renderer.render_clip(source_video_path, clip, output_filename)
+        elif hasattr(renderer, "ClipRenderer"):
+            r = renderer.ClipRenderer()
+            r.render_clip(source_video_path, clip, output_filename)
+        else:
+            raise AttributeError("Could not find render_clip in engine/renderer.py")
 
     print("All clips rendered successfully!")
 
