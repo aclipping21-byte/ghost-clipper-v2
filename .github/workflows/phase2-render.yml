@@ -28,13 +28,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick fonts-liberation fonts-dejavu
-          # Fix ImageMagick security policy so MoviePy can draw text
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
 
       - name: Install Python Dependencies
         run: pip install -r engine/requirements.txt
 
-            - name: Render Video Clips
+      - name: Render Video Clips
         env:
           VIDEO_URL: ${{ github.event.inputs.video_url || github.event.client_payload.videoUrl }}
           CLIPS_JSON: ${{ github.event.inputs.clips_json || github.event.client_payload.clipsJson }}
@@ -46,3 +45,4 @@ jobs:
         with:
           name: viral-clips
           path: workspace/output/
+          
