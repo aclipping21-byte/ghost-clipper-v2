@@ -38,7 +38,7 @@ def main():
     transcript = get_transcript(audio_path)
     print("Transcription complete!\n")
 
-        prompt_text = f"""You are an expert AI video director for TikTok/Reels. Read the transcript below and identify 1 to 2 highly viral clips (15-60s). 
+    prompt_text = f"""You are an expert AI video director for TikTok/Reels. Read the transcript below and identify 1 to 2 highly viral clips (15-60s). 
 Your editing philosophy: Content and retention come first. Do not overuse effects. Use surgical edits to enhance retention.
 
 You have access to these specific effects:
