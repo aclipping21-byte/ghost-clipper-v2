@@ -34,10 +34,11 @@ jobs:
       - name: Install Python Dependencies
         run: pip install -r engine/requirements.txt
 
-      - name: Render Video Clips
+            - name: Render Video Clips
         env:
           VIDEO_URL: ${{ github.event.inputs.video_url || github.event.client_payload.videoUrl }}
           CLIPS_JSON: ${{ github.event.inputs.clips_json || github.event.client_payload.clipsJson }}
+          DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
         run: python engine/render_clips.py
 
       - name: Upload Edited Clips Artifact
