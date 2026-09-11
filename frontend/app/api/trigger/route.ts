@@ -10,7 +10,10 @@ export async function POST(req: Request) {
     const repo = process.env.GH_REPO;
 
     if (!token || !owner || !repo) {
-      return NextResponse.json({ error: "Missing GitHub credentials in Netlify settings." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Missing GitHub credentials in Netlify settings." },
+        { status: 500 }
+      );
     }
 
     const eventType = action === "render" ? "phase2_render" : "phase1_transcribe";
@@ -21,6 +24,7 @@ export async function POST(req: Request) {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
