@@ -24,10 +24,10 @@ def render_clip(video_path, clip_data, output_path):
     # 4. Automatic 9:16 Vertical Formatting
     TARGET_W, TARGET_H = 1080, 1920
     
-    # Create the background (scaled up and darkened for a "fake blur" effect that is highly stable)
+    # Create the background (scaled up and darkened)
     bg_clip = sub_clip.resize(height=TARGET_H)
     bg_clip = bg_clip.crop(x_center=bg_clip.w/2, y_center=bg_clip.h/2, width=TARGET_W, height=TARGET_H)
-    bg_clip = bg_clip.colorx(0.3) # Darken background by 70% to make foreground pop
+    bg_clip = bg_clip.fx(vfx.colorx, 0.3) # <-- FIX: Applied correctly using .fx()
 
     # Create the foreground (fit to width)
     fg_clip = sub_clip.resize(width=TARGET_W)
@@ -54,9 +54,8 @@ def render_clip(video_path, clip_data, output_path):
             
         elif effect_type == "animated_card":
             text = effect.get("text", "!")
-            # Note: TextClip requires ImageMagick installed on the server
-            txt_clip = TextClip(text, fontsize=120, color='white', bg_color='red', font="DejaVu-Sans-Bold", padding=30)
-            # Center it, start at effect time, last 1.5 seconds
+            # FIX: Removed the unsupported 'padding' argument
+            txt_clip = TextClip(text, fontsize=120, color='white', bg_color='red', font="DejaVu-Sans-Bold")
             txt_clip = txt_clip.set_position("center").set_start(effect_time).set_duration(1.5)
             layers.append(txt_clip)
             
