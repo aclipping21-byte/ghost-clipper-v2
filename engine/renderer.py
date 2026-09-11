@@ -2,97 +2,93 @@ import os
 from moviepy.editor import VideoFileClip, CompositeVideoClip, ColorClip, TextClip
 import moviepy.video.fx.all as vfx
 import moviepy.audio.fx.all as afx
+from transcription import get_word_timestamps
 
 def render_clip(video_path, clip_data, output_path):
-    # 1. Parse Clip Data
     start_time = float(clip_data.get("start_time", 0))
     end_time = float(clip_data.get("end_time", 0))
-    effects = clip_data.get("visual_effects", [])
-    hook_text = clip_data.get("hook_text", None)
     audio_enhance = clip_data.get("audio_enhance", False)
+    cap_style = clip_data.get("caption_style", {})
+    text_case = cap_style.get("case", "none") # AI can request "uppercase" or "lowercase"
 
-    # 2. Load and Cut Source Video
     video = VideoFileClip(video_path)
     if end_time > video.duration:
         end_time = video.duration
     sub_clip = video.subclip(start_time, end_time)
 
-    # 3. Audio Enhancement (Normalization)
     if audio_enhance:
         sub_clip = sub_clip.fx(afx.audio_normalize)
 
-    # 4. Automatic 9:16 Vertical Formatting
+    # 1. Background Blur (9:16 vertical formatting)
     TARGET_W, TARGET_H = 1080, 1920
-    
-    # Create the background (scaled up and darkened)
     bg_clip = sub_clip.resize(height=TARGET_H)
     bg_clip = bg_clip.crop(x_center=bg_clip.w/2, y_center=bg_clip.h/2, width=TARGET_W, height=TARGET_H)
-    bg_clip = bg_clip.fx(vfx.colorx, 0.3) # <-- FIX: Applied correctly using .fx()
+    bg_clip = bg_clip.fx(vfx.colorx, 0.3) 
 
-    # Create the foreground (fit to width)
     fg_clip = sub_clip.resize(width=TARGET_W)
     fg_clip = fg_clip.set_position("center")
 
     layers = [bg_clip, fg_clip]
 
-    # 5. Build Visual Effects Timeline
-    for effect in effects:
-        effect_type = effect.get("type")
-        effect_time = float(effect.get("time", 0)) - start_time
-        
-        # Ensure effect isn't outside the clip timeline
-        if effect_time < 0 or effect_time > sub_clip.duration:
-            continue
-
-        if effect_type == "green_flash":
-            flash = ColorClip(size=(TARGET_W, TARGET_H), color=(0, 255, 0)).set_opacity(0.4).set_duration(0.15).set_start(effect_time)
-            layers.append(flash)
-            
-        elif effect_type == "red_flash":
-            flash = ColorClip(size=(TARGET_W, TARGET_H), color=(255, 0, 0)).set_opacity(0.4).set_duration(0.15).set_start(effect_time)
-            layers.append(flash)
-            
-        elif effect_type == "animated_card":
-            text = effect.get("text", "!")
-            # FIX: Removed the unsupported 'padding' argument
-            txt_clip = TextClip(text, fontsize=120, color='white', bg_color='red', font="DejaVu-Sans-Bold")
-            txt_clip = txt_clip.set_position("center").set_start(effect_time).set_duration(1.5)
-            layers.append(txt_clip)
-            
-        elif effect_type in ["black_screen", "white_screen"]:
-            eff_start = float(effect.get("start", start_time)) - start_time
-            eff_end = float(effect.get("end", start_time + 1)) - start_time
-            bg_color = (0,0,0) if effect_type == "black_screen" else (255,255,255)
-            txt_color = 'white' if effect_type == "black_screen" else 'black'
-            
-            screen = ColorClip(size=(TARGET_W, TARGET_H), color=bg_color).set_start(eff_start).set_end(eff_end)
-            text_overlay = TextClip(effect.get("text", ""), fontsize=100, color=txt_color, font="DejaVu-Sans-Bold", method='caption', size=(900, None))
-            text_overlay = text_overlay.set_position('center').set_start(eff_start).set_end(eff_end)
-            
-            layers.append(screen)
-            layers.append(text_overlay)
-
-    # 6. Apply First 3-Second Hook Text
-    if hook_text:
-        hook_bg = ColorClip(size=(TARGET_W, TARGET_H), color=(0, 0, 0)).set_duration(3.0).set_start(0)
-        hook_txt_clip = TextClip(hook_text, fontsize=140, color='white', font="DejaVu-Sans-Bold", method='caption', size=(900, None))
-        hook_txt_clip = hook_txt_clip.set_position("center").set_duration(3.0).set_start(0)
-        layers.append(hook_bg)
-        layers.append(hook_txt_clip)
-
-    # 7. Final Composite & Render
-    final_video = CompositeVideoClip(layers, size=(TARGET_W, TARGET_H)).set_duration(sub_clip.duration)
+    # 2. Extract Subclip Audio & Get Exact Timestamps
+    temp_audio_path = f"workspace/temp_audio.wav"
+    sub_clip.audio.write_audiofile(temp_audio_path, logger=None)
     
-    final_video.write_videofile(
-        output_path,
-        codec="libx264",
-        audio_codec="aac",
-        fps=30,
-        preset="fast",
-        logger=None
-    )
+    print("Fetching exact word timestamps from Deepgram...")
+    words_data = get_word_timestamps(temp_audio_path)
 
-    # Clean up memory
+    # 3. Smart Word Chunker (Groups 1-3 words dynamically)
+    chunks = []
+    current_chunk = []
+    current_start = 0
+
+    for i, w_info in enumerate(words_data):
+        if not current_chunk:
+            current_start = w_info['start']
+        
+        current_chunk.append(w_info['word'])
+        
+        is_last = (i == len(words_data) - 1)
+        big_gap = False
+        if not is_last:
+            if words_data[i+1]['start'] - w_info['end'] > 0.4:
+                big_gap = True
+                
+        if len(current_chunk) >= 3 or is_last or big_gap:
+            chunks.append({
+                'text': " ".join(current_chunk),
+                'start': current_start,
+                'end': w_info['end']
+            })
+            current_chunk = []
+
+    # 4. Draw High-Quality "Always-On" Captions
+    # Positioned slightly below center, exactly like the reference images
+    Y_POS = TARGET_H * 0.55 
+    
+    for chunk in chunks:
+        txt = chunk['text']
+        if text_case == "uppercase":
+            txt = txt.upper()
+        elif text_case == "lowercase":
+            txt = txt.lower()
+
+        # Dual-Layer Shadow Technique (Bulletproof Drop Shadow)
+        # 1. Draw the Black Shadow slightly lower and to the right
+        shadow_clip = TextClip(txt, fontsize=90, color='black', font="DejaVu-Sans-Bold", method='caption', size=(TARGET_W * 0.85, None), align='center')
+        shadow_clip = shadow_clip.set_position(('center', Y_POS + 5)).set_start(chunk['start']).set_end(chunk['end'])
+        
+        # 2. Draw the White Text on top
+        txt_clip = TextClip(txt, fontsize=90, color='white', font="DejaVu-Sans-Bold", method='caption', size=(TARGET_W * 0.85, None), align='center')
+        txt_clip = txt_clip.set_position(('center', Y_POS)).set_start(chunk['start']).set_end(chunk['end'])
+        
+        layers.append(shadow_clip)
+        layers.append(txt_clip)
+
+    # 5. Composite and Render
+    final_video = CompositeVideoClip(layers, size=(TARGET_W, TARGET_H)).set_duration(sub_clip.duration)
+    final_video.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=30, preset="fast", logger=None)
+
     sub_clip.close()
     video.close()
     final_video.close()
