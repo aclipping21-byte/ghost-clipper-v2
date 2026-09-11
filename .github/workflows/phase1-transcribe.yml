@@ -1,0 +1,36 @@
+name: Phase 1 - Transcribe & Generate Prompt
+
+on:
+  repository_dispatch:
+    types: [phase1_transcribe]
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: 'Direct Video URL'
+        required: true
+
+jobs:
+  transcribe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Dependencies
+        run: pip install -r engine/requirements.txt
+
+      - name: Generate AI Prompt
+        env:
+          DEEPGRAM_API_KEY: ${{ secrets.DEEPGRAM_API_KEY }}
+          VIDEO_URL: ${{ github.event.inputs.video_url || github.event.client_payload.videoUrl }}
+        run: python engine/generate_prompt.py
